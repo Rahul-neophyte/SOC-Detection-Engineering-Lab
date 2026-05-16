@@ -1,0 +1,99 @@
+═══════════════════════════════════════════════════
+        INCIDENT REPORT — IR-2026-003
+═══════════════════════════════════════════════════
+
+TITLE:      Lateral Movement via SMB Detected
+SEVERITY:   HIGH
+DATE:       05 May 2026
+ANALYST:    Rahul Teja Kathi
+STATUS:     Resolved (Lab Simulation)
+
+───────────────────────────────────────────────────
+EXECUTIVE SUMMARY
+───────────────────────────────────────────────────
+Lateral movement was detected on Windows endpoint
+(192.168.56.104) originating from attacker machine
+(192.168.56.103). Attacker used valid credentials
+for account "targetuser" to authenticate via SMB
+and enumerate network shares including ADMIN$ and
+C$ — indicating full administrative access to the
+target system.
+
+───────────────────────────────────────────────────
+ATTACK TIMELINE
+───────────────────────────────────────────────────
+22:33:32  First SMB authentication detected
+          Account: targetuser, Logon_Type: 3
+          Source: 192.168.56.103 (Kali)
+
+22:45:54  Second authentication confirmed
+          Share enumeration performed
+          ADMIN$, C$, IPC$ shares discovered
+
+───────────────────────────────────────────────────
+TECHNICAL FINDINGS
+───────────────────────────────────────────────────
+Attack Type:    Lateral Movement via SMB
+Tool Used:      CrackMapExec
+Protocol:       SMB Port 445
+Source IP:      192.168.56.103 (Kali Attacker)
+Target IP:      192.168.56.104 (Windows Victim)
+Account Used:   targetuser (stolen credentials)
+
+IOC TABLE:
+┌──────────────┬──────────────────────────────────┐
+│ IOC Type     │ Value                            │
+├──────────────┼──────────────────────────────────┤
+│ Source IP    │ 192.168.56.103                   │
+│ Target IP    │ 192.168.56.104                   │
+│ Account      │ targetuser                       │
+│ Protocol     │ SMB (Port 445)                   │
+│ Shares Found │ ADMIN$, C$, IPC$                 │
+│ Event IDs    │ 4624 (Logon Type 3)              │
+└──────────────┴──────────────────────────────────┘
+
+───────────────────────────────────────────────────
+MITRE ATT&CK MAPPING
+───────────────────────────────────────────────────
+Tactic:       Lateral Movement
+Technique:    T1021.002 — SMB/Windows Admin Shares
+Related:      T1078 — Valid Accounts
+Detection:    EventCode 4624, Logon_Type=3
+
+───────────────────────────────────────────────────
+DETECTION METHOD
+───────────────────────────────────────────────────
+index=winlogs EventCode=4624 Logon_Type=3
+| stats count by Account_Name, IpAddress
+| where count > 2
+
+Alert: "Lateral Movement — Network Logon Detected"
+Severity: High
+
+───────────────────────────────────────────────────
+RECOMMENDATIONS
+───────────────────────────────────────────────────
+1. Immediately isolate 192.168.56.104 from network
+2. Disable targetuser account
+3. Block 192.168.56.103 at firewall
+4. Audit all systems targetuser accessed
+5. Check ADMIN$ and C$ share access logs
+6. Reset all credentials on compromised systems
+
+───────────────────────────────────────────────────
+LESSONS LEARNED
+───────────────────────────────────────────────────
+Gap:        No restriction on SMB access
+            to ADMIN$ and C$ shares
+
+Prevention: Disable default admin shares
+            Block SMB between workstations
+            Implement network segmentation
+
+───────────────────────────────────────────────────
+ANALYST SIGN-OFF
+───────────────────────────────────────────────────
+Analyst:    Rahul Teja Kathi
+Date:       05 May 2026
+Report ID:  IR-2026-003
+═══════════════════════════════════════════════════

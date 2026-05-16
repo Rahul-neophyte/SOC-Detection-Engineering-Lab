@@ -1,0 +1,19 @@
+# DE-002: Privilege Escalation Detection
+# MITRE: T1053.005 — Scheduled Task
+# Severity: CRITICAL (always)
+# Analyst: Rahul Teja Kathi
+
+index=winlogs (EventCode=4672 OR EventCode=4688)
+| eval attack_indicator=case(
+    EventCode=4672 AND Account_Name="SYSTEM",
+    "SYSTEM_PRIVILEGE_ASSIGNED",
+    EventCode=4688 AND New_Process_Name="*schtasks*",
+    "SCHEDULED_TASK_EXECUTION",
+    true(), "NORMAL")
+| where attack_indicator != "NORMAL"
+| eval severity="CRITICAL"
+| eval mitre_technique="T1053.005 — Scheduled Task"
+| eval false_positive_note="Exclude known admin tasks"
+| table _time, Account_Name, attack_indicator,
+        New_Process_Name, severity, mitre_technique
+| sort -_time

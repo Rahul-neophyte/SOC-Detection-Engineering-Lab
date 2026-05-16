@@ -1,0 +1,22 @@
+# DE-003: Lateral Movement Detection
+# MITRE: T1021.002 — SMB/Windows Admin Shares
+# Severity: AUTO-SCORED (MEDIUM to CRITICAL)
+# Analyst: Rahul Teja Kathi
+
+index=winlogs EventCode=4624 Logon_Type=3
+| bucket _time span=10m
+| stats count as connection_count,
+        dc(host) as systems_accessed,
+        values(host) as system_list
+  by _time, Account_Name, src_ip
+| where connection_count > 2
+| eval severity=case(
+    systems_accessed > 3, "CRITICAL",
+    systems_accessed > 1, "HIGH",
+    true(), "MEDIUM")
+| eval mitre_technique="T1021.002 — SMB Lateral Movement"
+| eval false_positive_note="Exclude DCs and file servers"
+| table _time, Account_Name, src_ip,
+        connection_count, systems_accessed,
+        severity, mitre_technique
+| sort -systems_accessed

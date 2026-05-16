@@ -1,0 +1,115 @@
+═══════════════════════════════════════════════════════
+           INCIDENT REPORT — IR-2026-002
+═══════════════════════════════════════════════════════
+
+TITLE:          Privilege Escalation — SYSTEM Level
+                Process Execution Detected
+SEVERITY:       CRITICAL
+DATE:           04 May 2026
+ANALYST:        Rahul Teja Kathi
+STATUS:         Resolved (Lab Simulation)
+
+───────────────────────────────────────────────────────
+EXECUTIVE SUMMARY
+───────────────────────────────────────────────────────
+A privilege escalation was detected on Windows endpoint
+(192.168.56.102). A process was executed under
+NT AUTHORITY\SYSTEM context via Windows Task Scheduler
+abuse. The attack was detected via Sysmon Event ID 1
+(Process Creation) captured in Splunk SIEM showing
+schtasks.exe spawning a SYSTEM level cmd.exe process.
+
+───────────────────────────────────────────────────────
+ATTACK TIMELINE
+───────────────────────────────────────────────────────
+16:43:48 UTC   schtasks.exe executed by WINDOW\rahul
+               CommandLine: schtasks /run /tn PrivEscDemo
+               IntegrityLevel: High
+
+16:43:48 UTC   cmd.exe spawned as NT AUTHORITY\SYSTEM
+               Output written to:
+               C:\Users\Public\Documents\privesc.txt
+               Content confirmed: nt authority\system
+
+───────────────────────────────────────────────────────
+TECHNICAL FINDINGS
+───────────────────────────────────────────────────────
+Attack Type:      Scheduled Task Privilege Escalation
+Technique:        Abuse of Windows Task Scheduler
+                  to run process as SYSTEM
+Target Endpoint:  192.168.56.104 (WINDOWS)
+User Account:     WINDOW\rahul (triggered task)
+Escalated To:     NT AUTHORITY\SYSTEM
+
+IOC TABLE:
+┌─────────────────┬────────────────────────────────────┐
+│ IOC Type        │ Value                              │
+├─────────────────┼────────────────────────────────────┤
+│ Process         │ C:\Windows\System32\schtasks.exe   │
+│ CommandLine     │ schtasks /run /tn "PrivEscDemo"    │
+│ Parent Process  │ C:\Windows\System32\cmd.exe        │
+│ Output File     │ C:\Users\Public\Documents\         │
+│                 │ privesc.txt                        │
+│ Integrity Level │ High → SYSTEM                      │
+│ Process ID      │ 3240                               │
+│ Parent PID      │ 2380                               │
+└─────────────────┴────────────────────────────────────┘
+
+───────────────────────────────────────────────────────
+MITRE ATT&CK MAPPING
+───────────────────────────────────────────────────────
+Tactic:         Privilege Escalation
+Technique:      T1053.005 — Scheduled Task/Job
+Related:        T1078 — Valid Accounts
+Detection:      Sysmon Event ID 1 — Process Creation
+                IntegrityLevel = System
+                Parent: cmd.exe → Child: schtasks.exe
+
+───────────────────────────────────────────────────────
+DETECTION METHOD
+───────────────────────────────────────────────────────
+Detected via Splunk Sysmon pipeline:
+
+index=winlogs sourcetype="XmlWinEventLog:
+Microsoft-Windows-Sysmon/Operational" EventCode=1
+| search User="*SYSTEM*"
+| table _time, Image, ParentImage, CommandLine, User
+
+Alert: "Privilege Escalation — SYSTEM Process Detected"
+Severity: Critical
+
+───────────────────────────────────────────────────────
+RECOMMENDATIONS
+───────────────────────────────────────────────────────
+1. Audit all scheduled tasks running as SYSTEM
+   immediately — identify unauthorized tasks
+2. Restrict who can create/run scheduled tasks
+   via Group Policy
+3. Enable Task Scheduler audit logging
+4. Alert on any new scheduled task creation
+   (Event ID 4698)
+5. Review all files written after SYSTEM execution
+   — check for persistence mechanisms
+
+───────────────────────────────────────────────────────
+LESSONS LEARNED
+───────────────────────────────────────────────────────
+Detection Gap:   No alerting on scheduled task
+                 creation or SYSTEM process spawning
+
+Prevention:      Restrict schtasks.exe execution
+                 to administrators only via
+                 AppLocker or Software Restriction
+                 Policies
+
+Improvement:     Add Event ID 4698 monitoring
+                 (Scheduled Task Created) to
+                 detect this earlier in attack chain
+
+───────────────────────────────────────────────────────
+ANALYST SIGN-OFF
+───────────────────────────────────────────────────────
+Analyst:    Rahul Teja Kathi
+Date:       04 May 2026
+Report ID:  IR-2026-002
+═══════════════════════════════════════════════════════

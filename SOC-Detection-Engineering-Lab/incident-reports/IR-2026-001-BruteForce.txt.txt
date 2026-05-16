@@ -1,0 +1,113 @@
+═══════════════════════════════════════════════════════
+           INCIDENT REPORT — IR-2026-001
+═══════════════════════════════════════════════════════
+
+TITLE:          Brute Force Attack — Successful Compromise
+SEVERITY:       HIGH
+DATE:           21 April 2026
+ANALYST:        Rahul Teja Kathi
+STATUS:         Resolved (Lab Simulation)
+
+───────────────────────────────────────────────────────
+EXECUTIVE SUMMARY
+───────────────────────────────────────────────────────
+A brute force attack was detected against the Windows
+endpoint (192.168.56.104) originating from an internal
+attacker machine (192.168.56.103). The attacker made 
+5 failed login attempts against account "targetuser" 
+before achieving one successful authentication.
+The attack was detected via Splunk SIEM using Windows
+Security Event ID 4625 and 4624 correlation.
+
+───────────────────────────────────────────────────────
+ATTACK TIMELINE
+───────────────────────────────────────────────────────
+[12:42:46 24-04-2026]	First failed login attempt detected
+                    	EventCode=4625, Account=targetuser
+                    	Source IP=192.168.56.103
+
+[12:42:51 24-04-2026]  	Multiple failed attempts continued
+                    	Total failed attempts: 5
+                   	Tool identified: CrackMapExec (SMB)
+
+[12:42:51 24-04-2026]  	Successful login detected
+                    	EventCode=4624, Account=targetuser
+                    	Source IP=192.168.56.103
+
+───────────────────────────────────────────────────────
+TECHNICAL FINDINGS
+───────────────────────────────────────────────────────
+Attack Type:        Brute Force — SMB Protocol
+Target Account:     targetuser
+Target Endpoint:    192.168.56.104 (WINDOWS)
+Source IP:          192.168.56.103 (Kali Attacker)
+Port Targeted:      445 (SMB)
+Total Attempts:     5 failed, 1 successful
+Tool Used:          CrackMapExec v(your version)
+
+IOC TABLE:
+┌─────────────────┬──────────────────────────────────┐
+│ IOC Type        │ Value                            │
+├─────────────────┼──────────────────────────────────┤
+│ Source IP       │ 192.168.56.103                   │
+│ Target IP       │ 192.168.56.104                   │
+│ Target Account  │ targetuser                       │
+│ Protocol        │ SMB (Port 445)                   │
+│ Event IDs       │ 4625 (failed), 4624 (success)    │
+└─────────────────┴──────────────────────────────────┘
+
+───────────────────────────────────────────────────────
+MITRE ATT&CK MAPPING
+───────────────────────────────────────────────────────
+Tactic:         Credential Access
+Technique:      T1110 — Brute Force
+Sub-technique:  T1110.001 — Password Guessing
+Detection:      Windows Security Event Log
+                EventCode 4625 + 4624 correlation
+
+───────────────────────────────────────────────────────
+DETECTION METHOD
+───────────────────────────────────────────────────────
+Detected using Splunk:
+
+index=winlogs (EventCode=4625 OR EventCode=4624)
+| eval status=if(EventCode="4624","success","failed")
+| stats count(eval(status="failed")) as failures,
+        count(eval(status="success")) as successes
+        by Account_Name
+| where failures > 3 AND successes > 0
+
+Alert fired: "Brute Force Success Detected"
+Severity set: Critical
+
+───────────────────────────────────────────────────────
+RECOMMENDATIONS
+───────────────────────────────────────────────────────
+1. Block source IP 192.168.56.103 at firewall
+2. Disable compromised account "targetuser" immediately
+3. Reset account password with strong complexity
+4. Enable account lockout policy:
+   Lock account after 3 failed attempts in 5 minutes
+5. Investigate all activity performed after
+   successful login — check for lateral movement
+6. Review all other accounts for similar patterns
+
+───────────────────────────────────────────────────────
+LESSONS LEARNED
+───────────────────────────────────────────────────────
+Detection Gap:  No account lockout policy was configured
+                allowing unlimited login attempts
+
+Prevention:     Account lockout policy would have 
+                stopped the attack after 3 attempts
+
+Improvement:    Add SMB brute force detection rule
+                with automatic IP block response
+
+───────────────────────────────────────────────────────
+ANALYST SIGN-OFF
+───────────────────────────────────────────────────────
+Analyst:        Rahul Teja Kathi
+Date:           21 April 2026
+Report ID:      IR-2026-001
+═══════════════════════════════════════════════════════

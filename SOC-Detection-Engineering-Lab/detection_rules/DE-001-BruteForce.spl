@@ -1,0 +1,22 @@
+# DE-001: Brute Force Detection
+# MITRE: T1110.001 — Password Guessing
+# Severity: AUTO-SCORED (MEDIUM to CRITICAL)
+# Analyst: Rahul Teja Kathi
+
+index=winlogs EventCode=4625
+| bucket _time span=5m
+| stats count as failure_count,
+        dc(Account_Name) as accounts_targeted,
+        values(Account_Name) as targeted_accounts
+  by _time, src_ip
+| where failure_count > 10
+| eval severity=case(
+    failure_count > 50, "CRITICAL",
+    failure_count > 25, "HIGH",
+    failure_count > 10, "MEDIUM",
+    true(), "LOW")
+| eval mitre_technique="T1110.001 — Password Guessing"
+| eval false_positive_note="Exclude backup service IPs"
+| table _time, src_ip, failure_count,
+        accounts_targeted, severity, mitre_technique
+| sort -failure_count

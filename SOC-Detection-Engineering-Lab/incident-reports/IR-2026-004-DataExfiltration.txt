@@ -1,0 +1,130 @@
+═══════════════════════════════════════════════════
+        INCIDENT REPORT — IR-2026-004
+═══════════════════════════════════════════════════
+
+TITLE:      Data Exfiltration via Netcat Detected
+SEVERITY:   CRITICAL
+DATE:       07 May 2026
+ANALYST:    Rahul Teja Kathi
+STATUS:     Resolved (Lab Simulation)
+
+───────────────────────────────────────────────────
+EXECUTIVE SUMMARY
+───────────────────────────────────────────────────
+Data exfiltration was detected from Windows endpoint
+(192.168.56.104) to external attacker machine
+(192.168.56.103). PowerShell was used to establish
+a TCP connection on non-standard port 4444 and
+transmit sensitive files including employee records
+and credential files. Detected via Sysmon Event ID 3
+network connection telemetry in Splunk SIEM.
+
+───────────────────────────────────────────────────
+ATTACK TIMELINE
+───────────────────────────────────────────────────
+[Time]  Netcat listener started on Kali
+        Port 4444 opened for incoming connection
+
+[Time]  PowerShell initiated TCP connection
+        Source: 192.168.56.104 (Windows)
+        Destination: 192.168.56.103:4444 (Kali)
+
+[Time]  sensitive_data.txt transmitted
+        Contents: Employee PII + salary data
+
+[Time]  credentials.txt transmitted
+        Contents: System credentials
+
+───────────────────────────────────────────────────
+TECHNICAL FINDINGS
+───────────────────────────────────────────────────
+Attack Type:      Data Exfiltration via TCP
+Tool Used:        Netcat (nc) + PowerShell
+Protocol:         Raw TCP
+Source IP:        192.168.56.104 (Windows Victim)
+Destination IP:   192.168.56.103 (Kali Attacker)
+Port Used:        4444 (non-standard)
+Process:          powershell.exe
+
+FILES STOLEN:
+┌─────────────────────────────────────────────────┐
+│ sensitive_data.txt — Employee PII, salary,      │
+│                      SSN, bank account data     │
+│ credentials.txt    — System account passwords   │
+└─────────────────────────────────────────────────┘
+
+IOC TABLE:
+┌──────────────┬──────────────────────────────────┐
+│ IOC Type     │ Value                            │
+├──────────────┼──────────────────────────────────┤
+│ Source IP    │ 192.168.56.104                   │
+│ Dest IP      │ 192.168.56.103                   │
+│ Port         │ 4444 (non-standard TCP)          │
+│ Process      │ powershell.exe                   │
+│ Files        │ sensitive_data.txt               │
+│              │ credentials.txt                  │
+│ Sysmon EID   │ 3 — Network Connection           │
+└──────────────┴──────────────────────────────────┘
+
+───────────────────────────────────────────────────
+MITRE ATT&CK MAPPING
+───────────────────────────────────────────────────
+Tactic:       Exfiltration
+Technique:    T1041 — Exfiltration Over C2 Channel
+Related:      T1059.001 — PowerShell
+Detection:    Sysmon Event ID 3
+              DestinationPort != 80/443/53
+              Image = powershell.exe
+
+───────────────────────────────────────────────────
+FULL ATTACK CHAIN (All 4 Days Combined)
+───────────────────────────────────────────────────
+Day 4  T1110  Brute Force         → Got credentials
+Day 5  T1053  Privilege Escalation → Got SYSTEM access
+Day 6  T1021  Lateral Movement    → Mapped the network
+Day 7  T1041  Data Exfiltration   → Stole sensitive data
+
+───────────────────────────────────────────────────
+DETECTION METHOD
+───────────────────────────────────────────────────
+index=winlogs sourcetype=
+"XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+EventCode=3
+| where DestinationPort!=80 AND DestinationPort!=443
+  AND DestinationPort!=53
+| table _time, Image, DestinationIp, DestinationPort
+
+Alert: "Data Exfiltration — Non-Standard Port"
+Severity: Critical
+
+───────────────────────────────────────────────────
+RECOMMENDATIONS
+───────────────────────────────────────────────────
+1. Block all non-standard outbound ports at firewall
+   Allow only 80, 443, 53 outbound
+2. Implement DLP — block sensitive file transfers
+3. Alert on PowerShell making network connections
+4. Encrypt sensitive files at rest
+5. Implement egress filtering on all endpoints
+6. Review all data accessed by targetuser account
+7. Notify affected employees — PII was exposed
+
+───────────────────────────────────────────────────
+LESSONS LEARNED
+───────────────────────────────────────────────────
+Gap:        No egress filtering on non-standard ports
+            PowerShell network access unrestricted
+            Sensitive files stored unencrypted
+
+Prevention: Egress firewall rules
+            PowerShell constrained language mode
+            File encryption for sensitive data
+            DLP solution deployment
+
+───────────────────────────────────────────────────
+ANALYST SIGN-OFF
+───────────────────────────────────────────────────
+Analyst:    Rahul Teja Kathi
+Date:       07 May 2026
+Report ID:  IR-2026-004
+═══════════════════════════════════════════════════

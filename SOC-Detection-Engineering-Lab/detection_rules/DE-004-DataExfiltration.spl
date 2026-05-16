@@ -1,0 +1,21 @@
+# DE-004: Data Exfiltration Detection
+# MITRE: T1041 — Exfiltration Over C2 Channel
+# Severity: AUTO-SCORED (HIGH to CRITICAL)
+# Analyst: Rahul Teja Kathi
+
+index=winlogs sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+EventCode=3
+| eval is_suspicious=if(
+    DestinationPort!=80 AND DestinationPort!=443
+    AND DestinationPort!=53 AND DestinationPort!=8080,
+    "YES", "NO")
+| where is_suspicious="YES"
+| eval severity=case(
+    DestinationPort=4444, "CRITICAL",
+    DestinationPort=1337, "CRITICAL",
+    true(), "HIGH")
+| eval mitre_technique="T1041 — Exfiltration Over C2"
+| eval false_positive_note="Exclude known VPN and dev tool ports"
+| table _time, Image, DestinationIp,
+        DestinationPort, severity, mitre_technique
+| sort -_time
